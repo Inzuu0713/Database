@@ -18,9 +18,6 @@
           <span>Reports</span>
         </button>
       </nav>
-      <button class="sidebar-settings" @click="logout" title="Logout">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-      </button>
     </aside>
 
     <main class="main-content">
@@ -36,10 +33,44 @@
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <input type="text" placeholder="Search households or members..." />
           </div>
-          <div class="user-badge">
+          <!-- USER BADGE WITH DROPDOWN -->
+          <div class="user-badge" @click="toggleUserMenu" ref="userBadge">
             <span class="user-avatar">{{ userInitials }}</span>
             <span class="user-name">{{ userName }}</span>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            <!-- DROPDOWN MENU -->
+            <div v-if="showUserMenu" class="user-dropdown" @click.stop>
+              <div class="user-dropdown-header">
+                <span class="user-avatar-lg">{{ userInitials }}</span>
+                <div>
+                  <div class="user-dropdown-name">{{ userName }}</div>
+                  <div class="user-dropdown-email">{{ userEmail }}</div>
+                </div>
+              </div>
+              <div class="user-dropdown-divider"></div>
+              <!-- SETTINGS -->
+              <div v-if="!showEditName" class="user-dropdown-item" @click="showEditName = true; editNameValue = userName">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                Settings
+              </div>
+              <!-- EDIT NAME FORM -->
+              <div v-if="showEditName" class="user-dropdown-edit">
+                <label>Display Name</label>
+                <input type="text" v-model="editNameValue" class="user-edit-input" placeholder="Enter your name" />
+                <div class="user-edit-actions">
+                  <button class="btn-edit-cancel" @click="showEditName = false">Cancel</button>
+                  <button class="btn-edit-save" @click="saveName" :disabled="savingName">
+                    {{ savingName ? 'Saving...' : 'Save' }}
+                  </button>
+                </div>
+              </div>
+              <div class="user-dropdown-divider"></div>
+              <!-- LOGOUT -->
+              <div class="user-dropdown-item user-dropdown-logout" @click="logout">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                Logout
+              </div>
+            </div>
           </div>
         </div>
       </header>
@@ -338,7 +369,6 @@
 
           <div class="modal-section-header">RESIDENT INFORMATION</div>
           <div v-for="(resident, idx) in form.residents" :key="idx" class="resident-card">
-            <!-- UPDATED: resident card header with remove button -->
             <div class="resident-card-header">
               <div class="resident-card-title">Resident {{ idx + 1 }}</div>
               <button
@@ -424,7 +454,7 @@
               <input type="text" v-model="resident.disability" placeholder="None or specify" class="form-input" />
             </div>
             <div class="form-group">
-              <label>Medical History (Optional)</label>
+              <label>Medical History</label>
               <textarea v-model="resident.medicalHistory" class="form-textarea"></textarea>
             </div>
             <div class="form-group">
@@ -451,7 +481,7 @@
 
 <script>
 import { useRouter } from 'vue-router'
-import { getStats, getHouseholds, addHousehold, updateHousehold, deleteHousehold } from '../api.js'
+import { getStats, getHouseholds, addHousehold, updateHousehold, deleteHousehold, updateUserName } from '../api.js'
 
 export default {
   name: 'Dashboard',
@@ -468,12 +498,16 @@ export default {
       householdSearch: '',
       loadingHouseholds: false,
       saving: false,
+      savingName: false, // ✅ NEW: loading state for name save
       stats: { households: 0, residents: 0, children: 0, seniors: 0, pwd: 0 },
       households: [],
       form: this.blankForm(),
       userName: localStorage.getItem('user_name') || 'Admin',
-      // NEW: toast state
+      userEmail: localStorage.getItem('user_email') || '',
       toast: { show: false, message: '', type: 'success' },
+      showUserMenu: false,
+      showEditName: false,
+      editNameValue: '',
     }
   },
   computed: {
@@ -489,7 +523,15 @@ export default {
     },
   },
   mounted() {
+    // ✅ Always re-read from localStorage on mount so fresh login data is picked up
+    this.userName = localStorage.getItem('user_name') || 'Admin'
+    this.userEmail = localStorage.getItem('user_email') || ''
     this.loadData()
+    document.addEventListener('click', (e) => {
+      if (this.$refs.userBadge && !this.$refs.userBadge.contains(e.target)) {
+        this.showUserMenu = false
+      }
+    })
   },
   methods: {
     async loadData() {
@@ -570,14 +612,35 @@ export default {
     addResident() {
       this.form.residents.push(this.blankResident())
     },
-    // NEW: remove a resident by index
     removeResident(idx) {
       this.form.residents.splice(idx, 1)
     },
-    // NEW: show a toast notification
     showToast(message, type = 'success') {
       this.toast = { show: true, message, type }
       setTimeout(() => { this.toast.show = false }, 3000)
+    },
+    toggleUserMenu() {
+      this.showUserMenu = !this.showUserMenu
+      if (this.showUserMenu) {
+        this.showEditName = false
+        this.editNameValue = this.userName
+      }
+    },
+    // ✅ FIXED: saveName now saves to the database, not just localStorage
+    async saveName() {
+      if (!this.editNameValue.trim()) return
+      this.savingName = true
+      try {
+        await updateUserName(this.userEmail, this.editNameValue.trim())
+        this.userName = this.editNameValue.trim()
+        localStorage.setItem('user_name', this.userName)
+        this.showEditName = false
+        this.showToast('Name updated successfully!')
+      } catch (err) {
+        this.showToast('Error updating name: ' + err.message, 'error')
+      } finally {
+        this.savingName = false
+      }
     },
     async saveAll() {
       this.saving = true
@@ -618,6 +681,7 @@ export default {
       }
     },
     logout() {
+      this.showUserMenu = false
       if (confirm('Are you sure you want to logout?')) {
         localStorage.removeItem('isLoggedIn')
         localStorage.removeItem('user_email')
@@ -642,9 +706,6 @@ export default {
 .nav-item svg { width: 22px; height: 22px; }
 .nav-item:hover { background: rgba(255,255,255,0.1); color: #fff; }
 .nav-item.active { background: #2d6e50; color: #fff; }
-.sidebar-settings { margin-top: auto; background: transparent; border: none; color: rgba(255,255,255,0.5); cursor: pointer; padding: 12px; border-radius: 10px; transition: all 0.2s; }
-.sidebar-settings:hover { color: #fff; background: rgba(255,255,255,0.1); }
-.sidebar-settings svg { width: 22px; height: 22px; }
 
 .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 32px; background: #fff; border-bottom: 1px solid #e8eeeb; }
@@ -654,10 +715,32 @@ export default {
 .search-box svg { width: 16px; height: 16px; color: #8aab99; flex-shrink: 0; }
 .search-box input { border: none; background: transparent; outline: none; font-size: 13px; color: #1a2e25; width: 100%; }
 .search-box input::placeholder { color: #9db8ab; }
-.user-badge { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+
+.user-badge { display: flex; align-items: center; gap: 8px; cursor: pointer; position: relative; }
 .user-avatar { width: 36px; height: 36px; background: #1a4a35; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
 .user-name { font-size: 14px; font-weight: 600; color: #1a2e25; }
-.user-badge svg { width: 14px; height: 14px; color: #8aab99; }
+.user-badge > svg { width: 14px; height: 14px; color: #8aab99; }
+.user-dropdown { position: absolute; top: calc(100% + 12px); right: 0; background: #fff; border: 1px solid #e8eeeb; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); min-width: 250px; z-index: 500; overflow: hidden; }
+.user-dropdown-header { display: flex; align-items: center; gap: 12px; padding: 16px; }
+.user-avatar-lg { width: 42px; height: 42px; background: #1a4a35; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; }
+.user-dropdown-name { font-size: 14px; font-weight: 700; color: #1a2e25; }
+.user-dropdown-email { font-size: 12px; color: #8aab99; margin-top: 2px; }
+.user-dropdown-divider { height: 1px; background: #e8eeeb; }
+.user-dropdown-item { display: flex; align-items: center; gap: 10px; padding: 12px 16px; font-size: 13.5px; font-weight: 500; color: #2a3e32; cursor: pointer; transition: background 0.15s; }
+.user-dropdown-item svg { width: 16px; height: 16px; color: #5a7a6a; }
+.user-dropdown-item:hover { background: #f4f8f6; }
+.user-dropdown-logout { color: #c0392b; }
+.user-dropdown-logout svg { color: #c0392b; }
+.user-dropdown-logout:hover { background: #fdf0ef; }
+.user-dropdown-edit { padding: 12px 16px; }
+.user-dropdown-edit label { display: block; font-size: 12px; font-weight: 600; color: #5a7a6a; margin-bottom: 6px; }
+.user-edit-input { width: 100%; padding: 8px 10px; border: 1.5px solid #dde6e2; border-radius: 7px; font-size: 13px; color: #1a2e25; outline: none; box-sizing: border-box; }
+.user-edit-input:focus { border-color: #2d6e50; }
+.user-edit-actions { display: flex; gap: 8px; margin-top: 8px; }
+.btn-edit-cancel { flex: 1; padding: 7px; background: #fff; border: 1.5px solid #ccd9d3; border-radius: 7px; font-size: 12.5px; font-weight: 600; cursor: pointer; color: #1a2e25; }
+.btn-edit-save { flex: 1; padding: 7px; background: #1a4a35; border: none; border-radius: 7px; font-size: 12.5px; font-weight: 600; cursor: pointer; color: #fff; }
+.btn-edit-save:hover:not(:disabled) { background: #0f3326; }
+.btn-edit-save:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .page-content { flex: 1; overflow-y: auto; padding: 28px 32px; }
 .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 28px; }
@@ -732,14 +815,11 @@ export default {
 .input-prefix { position: absolute; left: 12px; font-size: 13.5px; color: #7a9989; pointer-events: none; }
 .form-input.with-prefix { padding-left: 24px; }
 .resident-card { border: 1.5px solid #e8eeeb; border-radius: 10px; padding: 18px; margin-bottom: 16px; background: #fafcfb; }
-
-/* NEW: resident card header layout */
 .resident-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .resident-card-title { font-size: 13px; font-weight: 700; color: #2d6e50; }
 .btn-remove-resident { display: flex; align-items: center; gap: 5px; background: transparent; border: 1.5px solid #e8b4b0; color: #c0392b; border-radius: 7px; padding: 5px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
 .btn-remove-resident svg { width: 13px; height: 13px; }
 .btn-remove-resident:hover { background: #fdf0ef; border-color: #c0392b; }
-
 .btn-add-resident { display: flex; align-items: center; gap: 7px; background: transparent; border: 2px solid #2d6e50; color: #2d6e50; border-radius: 8px; padding: 10px 18px; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
 .btn-add-resident svg { width: 15px; height: 15px; }
 .btn-add-resident:hover { background: #e8f5ee; }
@@ -748,7 +828,6 @@ export default {
 .empty-state svg { width: 48px; height: 48px; }
 .empty-state p { font-size: 15px; }
 
-/* NEW: toast notification */
 .toast { position: fixed; bottom: 28px; right: 28px; z-index: 2000; display: flex; align-items: center; gap: 10px; padding: 14px 20px; border-radius: 10px; font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.15); animation: slideUp 0.3s ease; }
 .toast svg { width: 18px; height: 18px; flex-shrink: 0; }
 .toast-success { background: #1a4a35; color: #fff; }

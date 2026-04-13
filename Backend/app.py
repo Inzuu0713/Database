@@ -126,6 +126,31 @@ def login():
     else:
         return jsonify({'error': 'Invalid email or password.'}), 401
 
+
+# ✅ NEW ROUTE: Update user's display name
+@app.route('/api/user/name', methods=['PUT'])
+def update_user_name():
+    data = request.get_json()
+    email = data.get('email', '').strip().lower()
+    full_name = data.get('fullName', '').strip()
+
+    if not email or not full_name:
+        return jsonify({'error': 'Email and name are required.'}), 400
+
+    conn = get_db()
+    result = conn.execute(
+        'UPDATE users SET full_name = ? WHERE email = ?',
+        (full_name, email)
+    )
+    conn.commit()
+    conn.close()
+
+    if result.rowcount == 0:
+        return jsonify({'error': 'User not found.'}), 404
+
+    return jsonify({'message': 'Name updated successfully.', 'fullName': full_name}), 200
+
+
 @app.route('/api/households', methods=['GET'])
 def get_households():
     conn = get_db()
@@ -250,7 +275,6 @@ def update_household(household_id):
         )
     )
 
-    # Replace all residents
     conn.execute('DELETE FROM residents WHERE household_id = ?', (household_id,))
     for r in residents_data:
         conn.execute(

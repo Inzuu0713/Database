@@ -22,6 +22,18 @@ export async function signup(fullName, email, password) {
   return data
 }
 
+// ✅ NEW: Save updated display name to the database
+export async function updateUserName(email, fullName) {
+  const res = await fetch(`${BASE_URL}/user/name`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, fullName })
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Failed to update name')
+  return data
+}
+
 export async function getStats() {
   const res = await fetch(`${BASE_URL}/stats`)
   const data = await res.json()

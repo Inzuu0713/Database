@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Data Profiling
 
 This template should help get you started developing with Vue 3 in Vite.
@@ -42,3 +43,6 @@ npm run build
 ```sh
 npm run lint
 ```
+=======
+# Database
+>>>>>>> 4c812f9ff6f94f0cd860d3b0d8a40d79bf9baeae
