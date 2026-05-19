@@ -74,6 +74,35 @@ def init_db():
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
+
+def insert_resident(conn, household_id, r, relation_override=None):
+    """Helper to insert a single resident row."""
+    conn.execute(
+        '''INSERT INTO residents
+           (household_id, full_name, birthday, age, sex, relation_to_head,
+            occupation, monthly_income, education, philhealth_number,
+            philhealth_category, four_ps, disability, medical_history, health_risk)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+        (
+            household_id,
+            r.get('fullName', ''),
+            r.get('birthday', ''),
+            int(r['age']) if r.get('age') else None,
+            r.get('sex', ''),
+            relation_override if relation_override else r.get('relation', ''),
+            r.get('occupation', ''),
+            float(r['income']) if r.get('income') else 0,
+            r.get('education', ''),
+            r.get('philhealth', ''),
+            r.get('philhealthCategory', ''),
+            r.get('fourPs', 'No'),
+            r.get('disability', 'None'),
+            r.get('medicalHistory', ''),
+            r.get('healthRisk', ''),
+        )
+    )
+
+
 @app.route('/api/signup', methods=['POST'])
 def signup():
     data = request.get_json()
@@ -127,7 +156,6 @@ def login():
         return jsonify({'error': 'Invalid email or password.'}), 401
 
 
-# ✅ NEW ROUTE: Update user's display name
 @app.route('/api/user/name', methods=['PUT'])
 def update_user_name():
     data = request.get_json()
@@ -159,8 +187,12 @@ def get_households():
     result = []
     for h in households:
         residents = conn.execute(
-            'SELECT * FROM residents WHERE household_id = ?', (h['id'],)
+            'SELECT * FROM residents WHERE household_id = ? ORDER BY id ASC', (h['id'],)
         ).fetchall()
+
+        # Separate head from other residents
+        head_row = next((r for r in residents if r['relation_to_head'] == 'Head'), None)
+        other_residents = [r for r in residents if r['relation_to_head'] != 'Head']
 
         children = sum(1 for r in residents if r['age'] is not None and int(r['age']) < 18)
         seniors = sum(1 for r in residents if r['age'] is not None and int(r['age']) >= 60)
@@ -183,7 +215,21 @@ def get_households():
             'children': children,
             'seniors': seniors,
             'pwd': pwd,
-            'residents': [dict(r) for r in residents]
+            # Head details for the form
+            'headBirthday': head_row['birthday'] if head_row else '',
+            'headAge': head_row['age'] if head_row else '',
+            'headSex': head_row['sex'] if head_row else '',
+            'headCivilStatus': '',
+            'headOccupation': head_row['occupation'] if head_row else '',
+            'headIncome': head_row['monthly_income'] if head_row else '',
+            'headEducation': head_row['education'] if head_row else '',
+            'headPhilhealth': head_row['philhealth_number'] if head_row else '',
+            'headPhilhealthCategory': head_row['philhealth_category'] if head_row else '',
+            'headFourPs': head_row['four_ps'] if head_row else 'No',
+            'headDisability': head_row['disability'] if head_row else '',
+            'headMedicalHistory': head_row['medical_history'] if head_row else '',
+            'headHealthRisk': head_row['health_risk'] if head_row else '',
+            'residents': [dict(r) for r in other_residents]
         })
 
     conn.close()
@@ -194,6 +240,7 @@ def get_households():
 def add_household():
     data = request.get_json()
     residents_data = data.get('residents', [])
+    head_data = data.get('head', {})
 
     conn = get_db()
     cursor = conn.execute(
@@ -216,31 +263,32 @@ def add_household():
     )
     household_id = cursor.lastrowid
 
+    # Save head as a resident with relation_to_head = 'Head'
+    head_full_name = f"{data.get('lastName', '')}, {data.get('firstName', '')}"
+    if data.get('middleName'):
+        head_full_name += f", {data.get('middleName', '')}"
+
+    head_resident = {
+        'fullName': head_full_name,
+        'birthday': head_data.get('birthday', ''),
+        'age': head_data.get('age', ''),
+        'sex': head_data.get('sex', ''),
+        'occupation': head_data.get('occupation', ''),
+        'income': head_data.get('income', ''),
+        'education': head_data.get('education', ''),
+        'philhealth': head_data.get('philhealth', ''),
+        'philhealthCategory': head_data.get('philhealthCategory', ''),
+        'fourPs': head_data.get('fourPs', 'No'),
+        'disability': head_data.get('disability', 'None'),
+        'medicalHistory': head_data.get('medicalHistory', ''),
+        'healthRisk': head_data.get('healthRisk', ''),
+    }
+    insert_resident(conn, household_id, head_resident, relation_override='Head')
+
+    # Save other residents
     for r in residents_data:
-        conn.execute(
-            '''INSERT INTO residents
-               (household_id, full_name, birthday, age, sex, relation_to_head,
-                occupation, monthly_income, education, philhealth_number,
-                philhealth_category, four_ps, disability, medical_history, health_risk)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-            (
-                household_id,
-                r.get('fullName', ''),
-                r.get('birthday', ''),
-                int(r['age']) if r.get('age') else None,
-                r.get('sex', ''),
-                r.get('relation', ''),
-                r.get('occupation', ''),
-                float(r['income']) if r.get('income') else 0,
-                r.get('education', ''),
-                r.get('philhealth', ''),
-                r.get('philhealthCategory', ''),
-                r.get('fourPs', 'No'),
-                r.get('disability', 'None'),
-                r.get('medicalHistory', ''),
-                r.get('healthRisk', ''),
-            )
-        )
+        if r.get('fullName', '').strip():
+            insert_resident(conn, household_id, r)
 
     conn.commit()
     conn.close()
@@ -251,6 +299,7 @@ def add_household():
 def update_household(household_id):
     data = request.get_json()
     residents_data = data.get('residents', [])
+    head_data = data.get('head', {})
 
     conn = get_db()
     conn.execute(
@@ -275,32 +324,35 @@ def update_household(household_id):
         )
     )
 
+    # Delete all existing residents and re-insert
     conn.execute('DELETE FROM residents WHERE household_id = ?', (household_id,))
+
+    # Re-insert head as resident
+    head_full_name = f"{data.get('lastName', '')}, {data.get('firstName', '')}"
+    if data.get('middleName'):
+        head_full_name += f", {data.get('middleName', '')}"
+
+    head_resident = {
+        'fullName': head_full_name,
+        'birthday': head_data.get('birthday', ''),
+        'age': head_data.get('age', ''),
+        'sex': head_data.get('sex', ''),
+        'occupation': head_data.get('occupation', ''),
+        'income': head_data.get('income', ''),
+        'education': head_data.get('education', ''),
+        'philhealth': head_data.get('philhealth', ''),
+        'philhealthCategory': head_data.get('philhealthCategory', ''),
+        'fourPs': head_data.get('fourPs', 'No'),
+        'disability': head_data.get('disability', 'None'),
+        'medicalHistory': head_data.get('medicalHistory', ''),
+        'healthRisk': head_data.get('healthRisk', ''),
+    }
+    insert_resident(conn, household_id, head_resident, relation_override='Head')
+
+    # Re-insert other residents
     for r in residents_data:
-        conn.execute(
-            '''INSERT INTO residents
-               (household_id, full_name, birthday, age, sex, relation_to_head,
-                occupation, monthly_income, education, philhealth_number,
-                philhealth_category, four_ps, disability, medical_history, health_risk)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-            (
-                household_id,
-                r.get('fullName', ''),
-                r.get('birthday', ''),
-                int(r['age']) if r.get('age') else None,
-                r.get('sex', ''),
-                r.get('relation', ''),
-                r.get('occupation', ''),
-                float(r['income']) if r.get('income') else 0,
-                r.get('education', ''),
-                r.get('philhealth', ''),
-                r.get('philhealthCategory', ''),
-                r.get('fourPs', 'No'),
-                r.get('disability', 'None'),
-                r.get('medicalHistory', ''),
-                r.get('healthRisk', ''),
-            )
-        )
+        if r.get('fullName', '').strip():
+            insert_resident(conn, household_id, r)
 
     conn.commit()
     conn.close()
@@ -314,6 +366,7 @@ def delete_household(household_id):
     conn.commit()
     conn.close()
     return jsonify({'message': 'Household deleted successfully.'}), 200
+
 
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
@@ -335,6 +388,7 @@ def get_stats():
         'seniors': seniors,
         'pwd': pwd
     }), 200
+
 
 if __name__ == '__main__':
     init_db()
