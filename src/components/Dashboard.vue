@@ -264,7 +264,7 @@
           </div>
           <table class="data-table">
             <thead>
-              <tr><th>#</th><th>FULL NAME</th><th>SEX</th><th>BIRTHDAY</th><th>AGE</th><th>RELATION TO HEAD</th><th>ACTIONS</th></tr>
+              <tr><th>ZONE</th><th>FULL NAME</th><th>SEX</th><th>BIRTHDAY</th><th>AGE</th><th>RELATION TO HEAD</th><th>ACTIONS</th></tr>
             </thead>
             <tbody>
               <tr v-if="filteredResidents.length === 0">
@@ -364,7 +364,7 @@
                 <td colspan="9" style="text-align:center;color:#8aab99;padding:32px;">No residents found.</td>
               </tr>
               <tr v-for="(r, idx) in allResidents" :key="idx">
-                <td class="td-num">{{ idx + 1 }}</td>
+                <td><span class="search-zone-badge">Zone {{ r.zone }}</span></td>
                 <td class="td-res-name">{{ r.full_name }}</td>
                 <td>{{ r.sex }}</td>
                 <td>{{ r.age }}</td>
@@ -439,37 +439,27 @@
             WATER &amp; SANITATION SUMMARY
           </div>
           <div class="bgy-ws-grid">
-            <div class="bgy-ws-card">
-              <div class="bgy-ws-label">Safe water access</div>
-              <div class="bgy-ws-pct">{{ waterSummary.safe }}%</div>
-              <div class="bgy-ws-bar-track"><div class="bgy-ws-bar bgy-ws-bar-safe" :style="{ width: waterSummary.safe + '%' }"></div></div>
-            </div>
-            <div class="bgy-ws-card">
-              <div class="bgy-ws-label">Basic water access</div>
-              <div class="bgy-ws-pct">{{ waterSummary.basic }}%</div>
-              <div class="bgy-ws-bar-track"><div class="bgy-ws-bar bgy-ws-bar-basic" :style="{ width: waterSummary.basic + '%' }"></div></div>
-            </div>
-            <div class="bgy-ws-card">
-              <div class="bgy-ws-label">Limited water access</div>
-              <div class="bgy-ws-pct">{{ waterSummary.limited }}%</div>
-              <div class="bgy-ws-bar-track"><div class="bgy-ws-bar bgy-ws-bar-limited" :style="{ width: waterSummary.limited + '%' }"></div></div>
-            </div>
-            <div class="bgy-ws-card">
-              <div class="bgy-ws-label">Good sanitation</div>
-              <div class="bgy-ws-pct">{{ sanitationSummary.good }}%</div>
-              <div class="bgy-ws-bar-track"><div class="bgy-ws-bar bgy-ws-bar-safe" :style="{ width: sanitationSummary.good + '%' }"></div></div>
-            </div>
-            <div class="bgy-ws-card">
-              <div class="bgy-ws-label">Basic sanitation</div>
-              <div class="bgy-ws-pct">{{ sanitationSummary.basic }}%</div>
-              <div class="bgy-ws-bar-track"><div class="bgy-ws-bar bgy-ws-bar-basic" :style="{ width: sanitationSummary.basic + '%' }"></div></div>
-            </div>
-            <div class="bgy-ws-card">
-              <div class="bgy-ws-label">Poor sanitation</div>
-              <div class="bgy-ws-pct">{{ sanitationSummary.poor }}%</div>
-              <div class="bgy-ws-bar-track"><div class="bgy-ws-bar bgy-ws-bar-limited" :style="{ width: sanitationSummary.poor + '%' }"></div></div>
-            </div>
-          </div>
+  <div class="bgy-ws-card">
+    <div class="bgy-ws-label">Safe water access</div>
+    <div class="bgy-ws-pct">{{ waterSummary.safe }}%</div>
+    <div class="bgy-ws-bar-track"><div class="bgy-ws-bar bgy-ws-bar-safe" :style="{ width: waterSummary.safe + '%' }"></div></div>
+  </div>
+  <div class="bgy-ws-card">
+    <div class="bgy-ws-label">Basic water access</div>
+    <div class="bgy-ws-pct">{{ waterSummary.basic }}%</div>
+    <div class="bgy-ws-bar-track"><div class="bgy-ws-bar bgy-ws-bar-basic" :style="{ width: waterSummary.basic + '%' }"></div></div>
+  </div>
+  <div class="bgy-ws-card">
+    <div class="bgy-ws-label">Good sanitation</div>
+    <div class="bgy-ws-pct">{{ sanitationSummary.good }}%</div>
+    <div class="bgy-ws-bar-track"><div class="bgy-ws-bar bgy-ws-bar-safe" :style="{ width: sanitationSummary.good + '%' }"></div></div>
+  </div>
+  <div class="bgy-ws-card">
+    <div class="bgy-ws-label">Basic sanitation</div>
+    <div class="bgy-ws-pct">{{ sanitationSummary.basic }}%</div>
+    <div class="bgy-ws-bar-track"><div class="bgy-ws-bar bgy-ws-bar-basic" :style="{ width: sanitationSummary.basic + '%' }"></div></div>
+  </div>
+</div>
         </div>
       </div>
     </main>
@@ -826,18 +816,41 @@ export default {
       return list
     },
     globalSearchResults() {
-      const q = this.globalSearchQuery.trim().toLowerCase()
-      if (!q) return []
-      const results = []
-      this.households.forEach(h => {
-        (h.residents || []).forEach((r, idx) => {
-          if ((r.full_name || '').toLowerCase().includes(q) || (h.headName || '').toLowerCase().includes(q)) {
-            results.push({ residentId: h.id + '-' + idx, householdId: h.id, residentName: r.full_name || '', householdHead: h.headName || '', zone: h.zone, sex: r.sex || '', age: r.age || '', relation: r.relation_to_head || '' })
-          }
-        })
+  const q = this.globalSearchQuery.trim().toLowerCase()
+  if (!q) return []
+  const results = []
+  this.households.forEach(h => {
+    // ✅ Include household head in search
+    if ((h.headName || '').toLowerCase().includes(q)) {
+      results.push({
+        residentId: h.id + '-head',
+        householdId: h.id,
+        residentName: h.headName || '',
+        householdHead: h.headName || '',
+        zone: h.zone,
+        sex: h.headSex || '',
+        age: h.headAge || '',
+        relation: 'Head'
       })
-      return results.slice(0, 20)
-    },
+    }
+    // Existing resident search
+    ;(h.residents || []).forEach((r, idx) => {
+      if ((r.full_name || '').toLowerCase().includes(q) || (h.headName || '').toLowerCase().includes(q)) {
+        results.push({
+          residentId: h.id + '-' + idx,
+          householdId: h.id,
+          residentName: r.full_name || '',
+          householdHead: h.headName || '',
+          zone: h.zone,
+          sex: r.sex || '',
+          age: r.age || '',
+          relation: r.relation_to_head || ''
+        })
+      }
+    })
+  })
+  return results.slice(0, 20)
+},
     availableZones() {
       return [...new Set(this.households.map(h => String(h.zone)))].sort()
     },
@@ -867,17 +880,20 @@ export default {
         zone: h.zone,
         householdId: h.id,
       }
-      if (!q || (headEntry.full_name || '').toLowerCase().includes(q) || 'head'.includes(q)) {
+      const isNumericQuery = /^\d+$/.test(q)
+if (!q || (!isNumericQuery && ((headEntry.full_name || '').toLowerCase().includes(q) || 'head'.includes(q))) || (isNumericQuery && String(headEntry.zone) === q)) {
         list.push(headEntry)
       }
     }
     ;(h.residents || []).forEach(r => {
       if (!passesZone) return
-      if (q && !(
-        (r.full_name || '').toLowerCase().includes(q) ||
-        (r.occupation || '').toLowerCase().includes(q) ||
-        (r.relation_to_head || '').toLowerCase().includes(q)
-      )) return
+      const isNumericQuery = /^\d+$/.test(q)
+if (q && !(
+  (!isNumericQuery && (r.full_name || '').toLowerCase().includes(q)) ||
+  (!isNumericQuery && (r.occupation || '').toLowerCase().includes(q)) ||
+  (!isNumericQuery && (r.relation_to_head || '').toLowerCase().includes(q)) ||
+  (isNumericQuery && String(r.zone) === q)
+)) return
       list.push({ ...r, householdHead: h.headName, zone: h.zone, householdId: h.id })
     })
   })
@@ -895,29 +911,25 @@ export default {
   return list
 },
     waterSummary() {
-      const total = this.households.length
-      if (!total) return { safe: 0, basic: 0, limited: 0 }
-      const safe = this.households.filter(h => h.basicWater === 'Yes' && h.safeWater === 'Yes').length
-      const basic = this.households.filter(h => h.basicWater === 'Yes' && h.safeWater !== 'Yes').length
-      const limited = total - safe - basic
-      return {
-        safe: Math.round((safe / total) * 100),
-        basic: Math.round((basic / total) * 100),
-        limited: Math.round((limited / total) * 100),
-      }
-    },
+  const total = this.households.length
+  if (!total) return { safe: 0, basic: 0 }
+  const safe = this.households.filter(h => h.basicWater === 'Yes' && h.safeWater === 'Yes').length
+  const basic = this.households.filter(h => h.basicWater === 'Yes' && h.safeWater !== 'Yes').length
+  return {
+    safe: Math.round((safe / total) * 100),
+    basic: Math.round((basic / total) * 100),
+  }
+},
     sanitationSummary() {
-      const total = this.households.length
-      if (!total) return { good: 0, basic: 0, poor: 0 }
-      const good = this.households.filter(h => h.sanitation === 'Good' || (h.sanitation === 'Yes' && h.safeSanitation === 'Yes')).length
-      const basic = this.households.filter(h => h.sanitation === 'Basic' || (h.sanitation === 'Yes' && h.safeSanitation !== 'Yes')).length
-      const poor = total - good - basic
-      return {
-        good: Math.round((good / total) * 100),
-        basic: Math.round((basic / total) * 100),
-        poor: Math.round((poor / total) * 100),
-      }
-    },
+  const total = this.households.length
+  if (!total) return { good: 0, basic: 0 }
+  const good = this.households.filter(h => h.sanitation === 'Good' || (h.sanitation === 'Yes' && h.safeSanitation === 'Yes')).length
+  const basic = this.households.filter(h => h.sanitation === 'Basic' || (h.sanitation === 'Yes' && h.safeSanitation !== 'Yes')).length
+  return {
+    good: Math.round((good / total) * 100),
+    basic: Math.round((basic / total) * 100),
+  }
+},
     zoneGroups() {
       const map = {}
       this.households.forEach(h => {
@@ -1373,7 +1385,7 @@ export default {
 /* WATER & SANITATION SUMMARY */
 .bgy-ws-section { background: #fff; border-radius: 14px; border: 1px solid #e8eeeb; padding: 24px; margin-top: 18px; }
 .bgy-ws-title { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: #3a6a52; letter-spacing: 0.6px; margin-bottom: 20px; }
-.bgy-ws-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.bgy-ws-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
 .bgy-ws-card { background: #f4f8f6; border-radius: 10px; padding: 16px 18px; }
 .bgy-ws-label { font-size: 12.5px; color: #5a7a6a; font-weight: 500; margin-bottom: 4px; }
 .bgy-ws-pct { font-size: 22px; font-weight: 800; color: #1a2e25; margin-bottom: 10px; line-height: 1; }
